@@ -84,4 +84,3 @@ export async function evaluateCavity(occlusalImage: string, proximalImage: strin
     throw new Error("Değerlendirme sonuçları işlenirken bir hata oluştu.");
   }
 }
-
