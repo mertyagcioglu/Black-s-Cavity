@@ -19,7 +19,7 @@ You must provide a score for each of the following 10 criteria:
 9. Dovetail Cavity (Max 10): 1/3 ratio (10), 1/2 ratio (5), 1/1 or >1 ratio (0).
 10. Critical Errors: 
     - Pulpa perforation or Wrong cavity preparation: Set isInvalid to true and totalScore to 0.
-    - No step preparation: Deduct 30 points from total.
+    - No step preparation (Basamak hazırlığı yapılmaması): Deduct 30 points from totalScore.
 
 Use both images to make the most accurate assessment. The occlusal view is best for outline, retention, depth, and dovetail. The proximal view is best for proximal box width, gingival floor depth, and axial wall alignment.
 Return the result in JSON format matching the EvaluationResult interface.
