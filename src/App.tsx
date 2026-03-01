@@ -273,7 +273,7 @@ export default function App() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[500px]"
+                  className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-125"
                 >
                   <div className="relative">
                     <div className="w-24 h-24 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
@@ -400,7 +400,7 @@ export default function App() {
                   </button>
                 </motion.div>
               ) : (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[500px] text-gray-400">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-125 text-gray-400">
                   <div className="bg-gray-50 p-8 rounded-full">
                     <Activity className="w-16 h-16 opacity-20" />
                   </div>
