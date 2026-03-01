@@ -9,11 +9,14 @@ import {
   FileText,
   Award,
   Activity,
-  Zap
+  Zap,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { evaluateCavity } from './services/geminiService';
-import { EvaluationResult } from './types';
+import { EvaluationResult, EVALUATION_CRITERIA } from './types';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 export default function App() {
   const [occlusalImage, setOcclusalImage] = useState<string | null>(null);
@@ -21,8 +24,11 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [showCriteria, setShowCriteria] = useState(false);
   const occlusalInputRef = useRef<HTMLInputElement>(null);
   const proximalInputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'occlusal' | 'proximal') => {
     const file = e.target.files?.[0];
@@ -52,6 +58,55 @@ export default function App() {
     }
   };
 
+  const downloadPDF = async () => {
+    if (!resultsRef.current || !result) return;
+    setIsGeneratingPDF(true);
+    try {
+      // Wait a bit for any animations to settle
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const canvas = await html2canvas(resultsRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#FFFFFF', // Use pure white for PDF background
+        windowWidth: resultsRef.current.scrollWidth,
+        windowHeight: resultsRef.current.scrollHeight
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10; // 10mm margin
+      const availableWidth = pdfWidth - (margin * 2);
+      const availableHeight = pdfHeight - (margin * 2);
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const ratio = Math.min(availableWidth / imgProps.width, availableHeight / imgProps.height);
+      const width = imgProps.width * ratio;
+      const height = imgProps.height * ratio;
+      
+      // Center horizontally and apply top margin
+      const x = (pdfWidth - width) / 2;
+      const y = margin;
+      
+      pdf.addImage(imgData, 'PNG', x, y, width, height);
+      pdf.save(`DentEval_Raporu_${new Date().toLocaleDateString('tr-TR').replace(/\./g, '_')}.pdf`);
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      alert('PDF oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const reset = () => {
     setOcclusalImage(null);
     setProximalImage(null);
@@ -71,7 +126,12 @@ export default function App() {
             <h1 className="text-xl font-bold tracking-tight text-emerald-900">DentEval AI</h1>
           </div>
           <div className="hidden sm:flex items-center gap-6 text-sm font-medium text-gray-500">
-            <a href="#" className="hover:text-emerald-600 transition-colors">Kriterler</a>
+            <button 
+              onClick={() => setShowCriteria(true)}
+              className="hover:text-emerald-600 transition-colors"
+            >
+              Kriterler
+            </button>
             <a href="#" className="hover:text-emerald-600 transition-colors">Hakkında</a>
             <button className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full hover:bg-emerald-100 transition-colors">
               Yardım
@@ -233,18 +293,18 @@ export default function App() {
                   className="space-y-6"
                 >
                   {/* Score Summary Card */}
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="bg-emerald-600 p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-6">
+                  <div ref={resultsRef} className="bg-white rounded-2xl border border-[#e5e7eb] overflow-hidden" style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>
+                    <div className="bg-[#059669] p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-6">
                       <div className="space-y-1 text-center sm:text-left">
-                        <p className="text-emerald-100 text-sm font-medium uppercase tracking-wider">Toplam Başarı Puanı</p>
+                        <p className="text-[#d1fae5] text-sm font-medium uppercase tracking-wider">Toplam Başarı Puanı</p>
                         <h3 className="text-5xl font-black">{result.totalScore}/100</h3>
                       </div>
-                      <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 flex items-center gap-4 border border-white/20">
+                      <div className="bg-[#ffffff33] rounded-2xl p-4 flex items-center gap-4 border border-[#ffffff33]">
                         <div className="bg-white rounded-xl p-3">
-                          <Award className="w-8 h-8 text-emerald-600" />
+                          <Award className="w-8 h-8 text-[#059669]" />
                         </div>
                         <div>
-                          <p className="text-xs text-emerald-100 font-medium">Değerlendirme</p>
+                          <p className="text-xs text-[#d1fae5] font-medium">Değerlendirme</p>
                           <p className="text-lg font-bold">
                             {result.totalScore >= 85 ? 'Mükemmel' : 
                              result.totalScore >= 70 ? 'Başarılı' : 
@@ -255,42 +315,42 @@ export default function App() {
                     </div>
 
                     {result.criticalError && (
-                      <div className="bg-red-50 border-l-4 border-red-500 p-4 flex items-start gap-3 m-6 rounded-r-lg">
-                        <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                      <div className="bg-[#fef2f2] border-l-4 border-[#ef4444] p-4 flex items-start gap-3 m-6 rounded-r-lg">
+                        <AlertCircle className="w-5 h-5 text-[#dc2626] shrink-0 mt-0.5" />
                         <div>
-                          <p className="font-bold text-red-800">Kritik Hata Tespit Edildi</p>
-                          <p className="text-sm text-red-700">{result.criticalError}</p>
+                          <p className="font-bold text-[#991b1b]">Kritik Hata Tespit Edildi</p>
+                          <p className="text-sm text-[#b91c1c]">{result.criticalError}</p>
                         </div>
                       </div>
                     )}
 
                     <div className="p-6 space-y-4">
-                      <h4 className="font-bold text-gray-900 flex items-center gap-2">
-                        <FileText className="w-5 h-5 text-emerald-600" />
+                      <h4 className="font-bold text-[#111827] flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-[#059669]" />
                         Kriter Bazlı Detaylar
                       </h4>
                       <div className="grid grid-cols-1 gap-3">
                         {result.criteria.map((c) => (
-                          <div key={c.id} className="group bg-gray-50 hover:bg-white hover:shadow-md border border-transparent hover:border-gray-100 rounded-xl p-4 transition-all">
+                          <div key={c.id} className="bg-[#f9fafb] border border-[#f3f4f6] rounded-xl p-4">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="font-semibold text-gray-700">{c.name}</span>
+                              <span className="font-semibold text-[#374151]">{c.name}</span>
                               <span className={`text-sm font-bold px-3 py-1 rounded-full ${
-                                c.score === c.maxScore ? 'bg-emerald-100 text-emerald-700' : 
-                                c.score === 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                                c.score === c.maxScore ? 'bg-[#d1fae5] text-[#047857]' : 
+                                c.score === 0 ? 'bg-[#fee2e2] text-[#dc2626]' : 'bg-[#fef3c7] text-[#b45309]'
                               }`}>
                                 {c.score} / {c.maxScore}
                               </span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3">
+                            <div className="w-full bg-[#e5e7eb] rounded-full h-1.5 mb-3">
                               <div 
-                                className={`h-1.5 rounded-full transition-all duration-1000 ${
-                                  c.score === c.maxScore ? 'bg-emerald-500' : 
-                                  c.score === 0 ? 'bg-red-500' : 'bg-amber-500'
+                                className={`h-1.5 rounded-full ${
+                                  c.score === c.maxScore ? 'bg-[#10b981]' : 
+                                  c.score === 0 ? 'bg-[#ef4444]' : 'bg-[#f59e0b]'
                                 }`}
                                 style={{ width: `${(c.score / c.maxScore) * 100}%` }}
                               />
                             </div>
-                            <p className="text-sm text-gray-500 leading-relaxed italic">
+                            <p className="text-sm text-[#6b7280] leading-relaxed italic">
                               "{c.feedback}"
                             </p>
                           </div>
@@ -299,13 +359,27 @@ export default function App() {
                     </div>
                   </div>
                   
-                  <button 
-                    onClick={reset}
-                    className="w-full py-4 border-2 border-gray-200 text-gray-500 font-bold rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <RefreshCw className="w-5 h-5" />
-                    Yeni Analiz Başlat
-                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <button 
+                      onClick={downloadPDF}
+                      disabled={isGeneratingPDF}
+                      className="w-full py-4 bg-white border-2 border-emerald-600 text-emerald-600 font-bold rounded-xl hover:bg-emerald-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                      {isGeneratingPDF ? (
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Download className="w-5 h-5" />
+                      )}
+                      PDF Olarak Kaydet
+                    </button>
+                    <button 
+                      onClick={reset}
+                      className="w-full py-4 bg-gray-100 text-gray-500 font-bold rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                      Yeni Analiz Başlat
+                    </button>
+                  </div>
                 </motion.div>
               ) : error ? (
                 <motion.div 
@@ -355,6 +429,78 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Criteria Modal */}
+      <AnimatePresence>
+        {showCriteria && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCriteria(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+            >
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-emerald-600 text-white">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-6 h-6" />
+                  <h2 className="text-xl font-bold">Değerlendirme Kriterleri</h2>
+                </div>
+                <button 
+                  onClick={() => setShowCriteria(false)}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                >
+                  <RefreshCw className="w-6 h-6 rotate-45" />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="space-y-4">
+                  {EVALUATION_CRITERIA.map((criterion) => (
+                    <div key={criterion.id} className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-3">
+                        <div className="flex items-center gap-3">
+                          <span className="bg-emerald-100 text-emerald-700 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
+                            {criterion.id}
+                          </span>
+                          <h3 className="font-bold text-gray-900 text-lg">{criterion.name}</h3>
+                        </div>
+                        <span className="bg-white px-4 py-1.5 rounded-full text-sm font-bold text-emerald-600 border border-emerald-100 shadow-sm self-start md:self-center">
+                          Maksimum: {criterion.maxScore} Puan
+                        </span>
+                      </div>
+                      <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+                        {criterion.description}
+                      </p>
+                      <div className="bg-white rounded-xl p-4 border border-gray-100">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Puanlama Kuralları</p>
+                        <p className="text-sm text-gray-700 font-medium">
+                          {criterion.scoringRules}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end">
+                <button 
+                  onClick={() => setShowCriteria(false)}
+                  className="px-8 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200"
+                >
+                  Anladım
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
