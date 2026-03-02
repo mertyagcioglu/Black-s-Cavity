@@ -1,8 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { EvaluationResult } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 const SYSTEM_INSTRUCTION = `
 You are an expert dental educator specializing in Pedodontics and Operative Dentistry. 
 Your task is to evaluate a Class II cavity preparation on a primary first molar tooth based on two photos: one from the occlusal view and one from the proximal view.
@@ -27,6 +25,12 @@ The 'feedback' field for each criterion should be in Turkish as the target users
 `;
 
 export async function evaluateCavity(occlusalImage: string, proximalImage: string): Promise<EvaluationResult> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Gemini API anahtarı bulunamadı. Lütfen ayarlardan API anahtarınızı kontrol edin.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: [
